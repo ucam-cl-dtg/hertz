@@ -23,6 +23,12 @@ import android.widget.EditText;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 
+/**
+ * An activity that allows the user to record full-quality
+ * audio at a variety of sample rates, and save to a WAV file
+ * @author Rhodri Karim
+ *
+ */
 public class Hertz extends Activity {
 
 	private Button actionButton;
@@ -37,6 +43,9 @@ public class Hertz extends Activity {
 	
 	private boolean isListening;
 	
+	/**
+	 * The sample rate at which we'll record, and save the WAV file.
+	 */
    	public int sampleRate = 8000;
 	
     @Override
@@ -44,11 +53,13 @@ public class Hertz extends Activity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.main);
         
+        // set up GUI references
         actionButton = (Button) findViewById(R.id.actionButton);
         editText = (EditText) findViewById(R.id.editText);
         saving = (ProgressBar) findViewById(R.id.saving);
         spinner = (Spinner) findViewById(R.id.spinner);
         
+        // get a generic dialog ready for alerts
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         dialog = builder.create();
         dialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK",
@@ -58,6 +69,7 @@ public class Hertz extends Activity {
 			}
 		});
         
+        // add GUI functionality
         saving.setVisibility(View.GONE);
         editText.setSingleLine(true);
         
@@ -66,6 +78,7 @@ public class Hertz extends Activity {
 			@Override
 			public void onClick(View v) {
 				
+				// check that there's somewhere to record to
 				String state = Environment.getExternalStorageState();
 				Log.d("FS State", state);
 				if (state.equals(Environment.MEDIA_SHARED)) {
@@ -82,6 +95,7 @@ public class Hertz extends Activity {
 					return;
 				}
 				
+				// check that the user's supplied a file name
 				filename = editText.getText().toString();
 				if (filename.equals("") || filename == null) {
 					dialog.setTitle("Enter a file name");
@@ -91,6 +105,7 @@ public class Hertz extends Activity {
 					return;
 				}
 				
+				// if we're already recording... start saving
 				if (isListening) {
 					isListening = false;
 					Thread thread = new Thread() {
@@ -116,7 +131,8 @@ public class Hertz extends Activity {
 						}
 					};
 					thread.start();
-				} else {
+				
+				} else { // otherwise start recording
 					sampleRate = Integer.parseInt((String)spinner.getSelectedItem());
 					isListening = true;
 					actionButton.setText("Stop recording");
@@ -128,11 +144,18 @@ public class Hertz extends Activity {
         });
     }
     
+    @Override
     public void onDestroy() {
     	super.onDestroy();
     	isListening = false;
     }
     
+    /**
+     * Capture raw audio data from the hardware and saves it to a
+     * buffer in the enclosing class.
+     * @author Rhodri Karim
+     *
+     */
     private class Capture implements Runnable {
     	
 	     private final int channelConfig = AudioFormat.CHANNEL_CONFIGURATION_MONO;
@@ -182,6 +205,11 @@ public class Hertz extends Activity {
     	}
     }
     
+    /**
+     * Saves the supplied byte stream as a WAV file
+     * @param name The desired filename
+     * @param bytes The sound data in 16-bit little-endian PCM format
+     */
 	public void save(String name, byte[] bytes) {
 		File fileName = new File(Environment.
 				getExternalStorageDirectory() + "/" + name);
@@ -206,6 +234,12 @@ public class Hertz extends Activity {
 		sendBroadcast(scanWav);
 	}
 	
+	/**
+	 * Creates a valid WAV header for the given bytes,
+	 * using the class-wide sample rate
+	 * @param bytes The sound data to be appraised
+	 * @return The header, ready to be written to a file
+	 */
 	public byte[] createHeader(byte[] bytes) {
 		
 		int totalLength = bytes.length + 4 + 24 + 8;
@@ -224,8 +258,8 @@ public class Hertz extends Activity {
 			out.write(new byte[] {'f','m','t',' '});
 			out.write(new byte[] {0x10,0x00,0x00,0x00}); // 16 bit chunks
 			out.write(new byte[] {0x01,0x00,0x01,0x00}); // mono
-			out.write(sampleRate); // sampling rate 8000
-			out.write(bytesPerSecond); // bytes per second 16000
+			out.write(sampleRate); // sampling rate
+			out.write(bytesPerSecond); // bytes per second
 			out.write(new byte[] {0x02,0x00,0x10,0x00}); // 2 bytes per sample
 
 			out.write(new byte[] {'d','a','t','a'});
@@ -237,6 +271,12 @@ public class Hertz extends Activity {
 		return out.toByteArray();
 	}
 	
+	/**
+	 * Turns an integer into its little-endian 
+	 * four-byte representation
+	 * @param in The integer to be converted
+	 * @return The bytes representing this integer
+	 */
 	public byte[] intToBytes(int in) {
 		byte[] bytes = new byte[4];
 		for (int i=0; i<4; i++) {
