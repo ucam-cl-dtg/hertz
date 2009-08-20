@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:layout_height="fill_parent"
+    android:padding="20dip"
+    android:gravity="center"
+    android:layout_width="fill_parent">
+    
+	<TextView android:layout_height="wrap_content"
+		android:layout_width="wrap_content"
+		android:text="Enter desired filename:"/>
+		
+	<EditText android:id="@+id/editText"
+		android:text="recording.wav"
+		android:layout_height="wrap_content"
+		android:layout_width="280dip"/>
+		
+	<TextView android:layout_width="wrap_content"
+		android:layout_height="wrap_content"
+		android:text="Choose sampling rate:"
+		android:layout_marginTop="10dip"/>
+		
+	<Spinner android:layout_height="wrap_content"
+		android:layout_width="280dip" android:id="@+id/spinner" android:entries="@array/sampleRates"/>
+	
+	<LinearLayout android:layout_height="wrap_content"
+		android:id="@+id/buttonLayout"
+		android:orientation="horizontal"
+		android:paddingTop="15dip"
+		android:layout_width="280dip"
+		android:gravity="center">
+		
+		<ProgressBar android:layout_width="wrap_content"
+			android:layout_height="wrap_content"
+			android:id="@+id/saving"
+			android:layout_marginRight="20dip"/>
+			
+		<Button android:layout_height="wrap_content"
+			android:id="@+id/actionButton"
+			android:text="Start recording"
+			android:layout_width="200dip"
+			android:textSize="8pt"/>
+	
+	</LinearLayout>
+
+</LinearLayout>
