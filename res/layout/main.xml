@@ -9,20 +9,34 @@
     
 	<TextView android:layout_height="wrap_content"
 		android:layout_width="wrap_content"
-		android:text="Enter desired filename:"/>
+		android:text="Enter desired filename:" android:layout_marginBottom="5dip"/>
 		
-	<EditText android:id="@+id/editText"
-		android:text="recording.wav"
-		android:layout_height="wrap_content"
-		android:layout_width="280dip"/>
+	<LinearLayout android:layout_height="wrap_content"
+		android:weightSum="6"
+		android:layout_width="280dip">
+	
+		<EditText android:id="@+id/editText"
+			android:text="recording.wav"
+			android:layout_height="wrap_content"
+			android:layout_width="0dip"
+			android:layout_weight="5"/>
+			
+		<ImageButton android:layout_height="wrap_content"
+			android:layout_weight="1"
+			android:layout_width="0dip"
+			android:id="@+id/newTimestamp" android:src="@drawable/clock"/>
+
+	</LinearLayout>
 		
 	<TextView android:layout_width="wrap_content"
 		android:layout_height="wrap_content"
 		android:text="Choose sampling rate:"
-		android:layout_marginTop="10dip"/>
+		android:layout_marginTop="10dip" android:layout_marginBottom="5dip"/>
 		
 	<Spinner android:layout_height="wrap_content"
-		android:layout_width="280dip" android:id="@+id/spinner" android:entries="@array/sampleRates"/>
+		android:layout_width="280dip"
+		android:id="@+id/spinner"
+		android:entries="@array/sampleRates"/>
 	
 	<LinearLayout android:layout_height="wrap_content"
 		android:id="@+id/buttonLayout"
@@ -44,4 +58,6 @@
 	
 	</LinearLayout>
 
+
+<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:typeface="serif" android:textStyle="italic" android:text="Recordings are saved to the SD card." android:layout_marginTop="5dip"></TextView>
 </LinearLayout>

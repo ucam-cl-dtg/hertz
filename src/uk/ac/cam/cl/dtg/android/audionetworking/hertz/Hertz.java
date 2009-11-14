@@ -2,8 +2,13 @@ package uk.ac.cam.cl.dtg.android.audionetworking.hertz;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 import android.app.Activity;
 import android.app.AlertDialog;
@@ -15,11 +20,13 @@ import android.media.MediaRecorder;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.StatFs;
 import android.util.Log;
 import android.view.View;
 import android.view.View.OnClickListener;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 
@@ -32,6 +39,7 @@ import android.widget.Spinner;
 public class Hertz extends Activity {
 
 	private Button actionButton;
+	private ImageButton newTimestamp;
 	private EditText editText;
 	private String filename;
 	private ProgressBar saving;
@@ -39,12 +47,12 @@ public class Hertz extends Activity {
 	
 	private AlertDialog dialog;
 	
-	private ByteArrayOutputStream bytesOut;
+	private File outFile;
 	
 	private boolean isListening;
 	
 	/**
-	 * The sample rate at which we'll record, and save the WAV file.
+	 * The sample rate at which we'll record, and save, the WAV file.
 	 */
    	public int sampleRate = 8000;
 	
@@ -55,6 +63,7 @@ public class Hertz extends Activity {
         
         // set up GUI references
         actionButton = (Button) findViewById(R.id.actionButton);
+        newTimestamp = (ImageButton) findViewById(R.id.newTimestamp);
         editText = (EditText) findViewById(R.id.editText);
         saving = (ProgressBar) findViewById(R.id.saving);
         spinner = (Spinner) findViewById(R.id.spinner);
@@ -73,45 +82,28 @@ public class Hertz extends Activity {
         saving.setVisibility(View.GONE);
         editText.setSingleLine(true);
         
+        newTimestamp.setOnClickListener(new OnClickListener() {
+			
+			@Override
+			public void onClick(View v) {
+				String timedFilename = "Rec_";
+				Date date = new Date();
+				SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
+				timedFilename += format.format(date);
+				editText.setText(timedFilename);
+			}
+		});
+        
         actionButton.setOnClickListener(new OnClickListener() {
 
 			@Override
 			public void onClick(View v) {
-				
-				// check that there's somewhere to record to
-				String state = Environment.getExternalStorageState();
-				Log.d("FS State", state);
-				if (state.equals(Environment.MEDIA_SHARED)) {
-					dialog.setTitle("Unmount USB storage");
-					dialog.setMessage("Please unmount USB storage before " +
-							"starting to record.");
-					dialog.show();
-					return;
-				} else if (state.equals(Environment.MEDIA_REMOVED)) {
-					dialog.setTitle("Insert SD Card");
-					dialog.setMessage("Please insert an SD card. You need " +
-							"something to record onto.");
-					dialog.show();
-					return;
-				}
-				
-				// check that the user's supplied a file name
-				filename = editText.getText().toString();
-				if (filename.equals("") || filename == null) {
-					dialog.setTitle("Enter a file name");
-					dialog.setMessage("Please give your file a name. It's " +
-							"the least it deserves.");
-					dialog.show();
-					return;
-				}
 				
 				// if we're already recording... start saving
 				if (isListening) {
 					isListening = false;
 					Thread thread = new Thread() {
 						public void run() {
-							if (!filename.endsWith(".wav"))
-								filename += ".wav";
 							runOnUiThread(new Runnable() {
 								public void run() {
 									actionButton.setEnabled(false);
@@ -119,11 +111,22 @@ public class Hertz extends Activity {
 									saving.setVisibility(View.VISIBLE);
 								}
 							});
-							byte[] bytes = bytesOut.toByteArray();
-							save(filename, bytes);
+							
+							if (outFile != null) {
+								appendHeader(outFile);
+
+								Intent scanWav = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+								scanWav.setData(Uri.fromFile(outFile));
+								sendBroadcast(scanWav);
+
+								outFile = null;
+							}
+							
 							runOnUiThread(new Runnable() {
 								public void run() {
 									actionButton.setEnabled(true);
+									editText.setEnabled(true);
+									newTimestamp.setEnabled(true);
 									actionButton.setText("Start recording");
 									saving.setVisibility(View.GONE);
 								}
@@ -132,12 +135,62 @@ public class Hertz extends Activity {
 					};
 					thread.start();
 				
-				} else { // otherwise start recording
-					sampleRate = Integer.parseInt((String)spinner.getSelectedItem());
-					isListening = true;
-					actionButton.setText("Stop recording");
-					Thread t = new Thread(new Capture());
-					t.start();
+				} else { 
+					
+					// check that there's somewhere to record to
+					String state = Environment.getExternalStorageState();
+					Log.d("FS State", state);
+					if (state.equals(Environment.MEDIA_SHARED)) {
+						dialog.setTitle("Unmount USB storage");
+						dialog.setMessage("Please unmount USB storage before " +
+								"starting to record.");
+						dialog.show();
+						return;
+					} else if (state.equals(Environment.MEDIA_REMOVED)) {
+						dialog.setTitle("Insert SD Card");
+						dialog.setMessage("Please insert an SD card. You need " +
+								"something to record onto.");
+						dialog.show();
+						return;
+					}
+					
+					// check that the user's supplied a file name
+					filename = editText.getText().toString();
+					if (filename.equals("") || filename == null) {
+						dialog.setTitle("Enter a file name");
+						dialog.setMessage("Please give your file a name. It's " +
+								"the least it deserves.");
+						dialog.show();
+						return;
+					}
+					if (!filename.endsWith(".wav")) filename += ".wav";
+					
+					// ask if file should be overwritten
+					File userFile = new File(
+							Environment.getExternalStorageDirectory() + "/" + filename);
+					if (userFile.exists()) {
+						AlertDialog.Builder builder = new AlertDialog.Builder(Hertz.this);
+						builder.setTitle("File already exists")
+							   .setMessage("Do you want to overwrite the existing " +
+							   		"file with that name?")
+						       .setCancelable(false)
+						       .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+						           public void onClick(DialogInterface dialog, int id) {
+						        	   dialog.dismiss();
+						        	   startRecording();
+						           }
+						       })
+						       .setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+						           public void onClick(DialogInterface dialog, int id) {
+						        	   dialog.cancel();
+						           }
+						       });
+						AlertDialog alert = builder.create();
+						alert.show();
+					} else { // otherwise, start recording
+						startRecording();
+					}
+
 				}
 			}
         	
@@ -148,6 +201,51 @@ public class Hertz extends Activity {
     public void onDestroy() {
     	super.onDestroy();
     	isListening = false;
+    }
+    
+    public void startRecording() {
+		sampleRate = Integer.parseInt((String)spinner.getSelectedItem());
+		isListening = true;
+		editText.setEnabled(false);
+		newTimestamp.setEnabled(false);
+		actionButton.setText("Stop recording");
+		Thread s = new Thread(new SpaceCheck());
+		s.start();
+		Thread t = new Thread(new Capture());
+		t.start();
+    }
+    
+    /**
+     * Monitors the available SD card space while recording.
+     * @author Rhodri Karim
+     *
+     */
+    private class SpaceCheck implements Runnable {
+    	public void run() {
+    		String sdDirectory = Environment.getExternalStorageDirectory().toString();
+    		StatFs stats = new StatFs(sdDirectory);
+    		while (isListening) {
+    			stats.restat(sdDirectory);
+    			int freeBytes = stats.getAvailableBlocks() * stats.getBlockSize();
+    			if (freeBytes < 5242880) { // less than 5MB remaining
+    				runOnUiThread(new Runnable() {
+    					public void run() {
+    						dialog.setTitle("Low on disk space");
+    						dialog.setMessage("There isn't enough space " +
+    						"left on your SD card, but what you've " +
+    						"recorded up to now has been saved.");
+    						dialog.show();
+    						actionButton.performClick();
+    					}
+    				});
+    				return;
+    			}
+    			
+    			try {
+					Thread.sleep(3000);
+				} catch (InterruptedException e) {}
+    		}
+    	}
     }
     
     /**
@@ -175,13 +273,36 @@ public class Hertz extends Activity {
 	        			  sampleRate, channelConfig, audioEncoding, bufferSize);
 	          
 	          byte[] tempBuffer = new byte[bufferSize];
-	          bytesOut = new ByteArrayOutputStream();
+
+	          String sdDirectory = Environment.getExternalStorageDirectory().toString();
+	          outFile = new File(sdDirectory + "/" + filename);
+	          if (outFile.exists())
+	        	  outFile.delete();
+
+	          FileOutputStream outStream = null;
+	          try {
+	        	  outFile.createNewFile();
+	        	  outStream = new FileOutputStream(outFile);
+	          } catch (Exception e) {
+	        	  runOnUiThread(new Runnable() {
+  					public void run() {
+  						dialog.setTitle("Error creating file");
+  						dialog.setMessage("The WAV file you specified " +
+  								"couldn't be created. Try again with a " +
+  								"different filename.");
+  						dialog.show();
+  						outFile = null;
+  						actionButton.performClick();
+  					}
+  				});
+	          }
+	          
 	          recordInstance.startRecording();
 	          
 	          try {
 	        	  while (isListening) { 
 	        		  recordInstance.read(tempBuffer,0,bufferSize);
-	        		  bytesOut.write(tempBuffer);
+	        		  outStream.write(tempBuffer);
 	        	  }
 	          } catch (IOException e) {
 	        	  e.printStackTrace();
@@ -202,17 +323,94 @@ public class Hertz extends Activity {
 	          // we're done recording
 	          Log.d("Capture","Stopping recording");
 	          recordInstance.stop();
+	          try {outStream.close();} catch (Exception e) {}
     	}
     }
     
     /**
-     * Saves the supplied byte stream as a WAV file
+     * Appends a WAV header to a file containing raw audio data.
+     * Uses different strategies depending on amount of free disk space.
+     * @param file The file containing 16-bit little-endian PCM data.
+     */
+    public void appendHeader(File file) {
+    	
+    	int bytesLength = (int) file.length(); 
+    	byte[] header = createHeader(bytesLength);
+    	int headerLength = header.length;
+
+    	String sdDirectory = Environment.getExternalStorageDirectory().toString();
+    	StatFs stats = new StatFs(sdDirectory);
+    	int freeBytes = stats.getAvailableBlocks() * stats.getBlockSize();
+    	
+    	if (freeBytes > 2*bytesLength + headerLength + 5242880) { // be wasteful if we have loads of space
+    		Log.d("Hertz","Using wasteful header append...");
+    		try {
+				String oldName = file.getPath();
+				File wavFile = new File(oldName + ".tmp");
+				if (wavFile.exists()) wavFile.delete();
+				wavFile.createNewFile();
+				FileOutputStream wavOut = new FileOutputStream(wavFile);
+				
+				wavOut.write(createHeader((int) file.length()));
+				
+				FileInputStream pcmIn = new FileInputStream(file);
+				int bytesRead; byte[] buffer = new byte[1024];
+				while ((bytesRead = pcmIn.read(buffer)) > 0)
+					wavOut.write(buffer,0,bytesRead);
+				wavOut.flush(); wavOut.close();
+				pcmIn.close(); file.delete();
+				boolean renamed = wavFile.renameTo(file);
+				if (!renamed) Log.e("Hertz","could not rename file after wasteful append");
+			} catch (FileNotFoundException e) {
+				Log.e("Hertz","Tried to wastefully append header to invalid file");
+	    		return;
+			} catch (IOException e) {
+				Log.e("Hertz","IO exception during wasteful header append");
+	    		return;
+			}
+    	} else try {
+    		Log.d("Hertz","Using thrifty header append...");
+    		RandomAccessFile ramFile = new RandomAccessFile(file,"rw");
+    		ramFile.setLength(bytesLength + headerLength);
+
+    		byte[] buffer = new byte[headerLength];
+    		int p = bytesLength - headerLength;
+    		while (p >= 0) {
+    			ramFile.seek(p);
+    			ramFile.read(buffer);
+    			ramFile.seek(p + headerLength);
+    			ramFile.write(buffer);
+    			p -= headerLength;
+    		}
+
+    		int strayBytes = headerLength + p;
+    		ramFile.seek(0);
+    		ramFile.read(buffer, 0, strayBytes);
+    		ramFile.seek(headerLength);
+    		ramFile.write(buffer, 0, strayBytes);
+
+    		ramFile.seek(0);
+    		ramFile.write(header);
+    		ramFile.close();
+    	} catch (FileNotFoundException e) {
+    		Log.e("Hertz","Tried to append header to invalid file");
+    		return;
+    	} catch (IOException e) {
+    		Log.e("Hertz","IO Error during header append");
+    		return;
+    	}
+
+    }
+    
+    /**
+     * Saves the supplied byte array as a WAV file
      * @param name The desired filename
      * @param bytes The sound data in 16-bit little-endian PCM format
      */
 	public void save(String name, byte[] bytes) {
-		File fileName = new File(Environment.
-				getExternalStorageDirectory() + "/" + name);
+		String sdDirectory = Environment.getExternalStorageDirectory().toString();
+		
+		File fileName = new File(sdDirectory + "/" + name);
 		if (fileName.exists())
 			fileName.delete();
 
@@ -220,7 +418,7 @@ public class Hertz extends Activity {
 			fileName.createNewFile();
 			FileOutputStream out = new FileOutputStream(fileName);
 
-			byte[] header = createHeader(bytes);		
+			byte[] header = createHeader(bytes.length);		
 			out.write(header); out.write(bytes);
 			out.flush(); out.close();
 			System.gc();
@@ -240,11 +438,11 @@ public class Hertz extends Activity {
 	 * @param bytes The sound data to be appraised
 	 * @return The header, ready to be written to a file
 	 */
-	public byte[] createHeader(byte[] bytes) {
+	public byte[] createHeader(int bytesLength) {
 		
-		int totalLength = bytes.length + 4 + 24 + 8;
+		int totalLength = bytesLength + 4 + 24 + 8;
 		byte[] lengthData = intToBytes(totalLength);
-		byte[] samplesLength = intToBytes(bytes.length);
+		byte[] samplesLength = intToBytes(bytesLength);
 		byte[] sampleRate = intToBytes(this.sampleRate);
 		byte[] bytesPerSecond = intToBytes(this.sampleRate*2);
 
