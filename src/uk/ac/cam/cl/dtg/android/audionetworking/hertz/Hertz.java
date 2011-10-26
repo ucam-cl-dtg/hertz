@@ -226,13 +226,13 @@ public class Hertz extends Activity {
     		StatFs stats = new StatFs(sdDirectory);
     		while (isListening) {
     			stats.restat(sdDirectory);
-    			int freeBytes = stats.getAvailableBlocks() * stats.getBlockSize();
+    			final long freeBytes = (long) stats.getAvailableBlocks() * (long)stats.getBlockSize();
     			if (freeBytes < 5242880) { // less than 5MB remaining
     				runOnUiThread(new Runnable() {
     					public void run() {
     						dialog.setTitle("Low on disk space");
     						dialog.setMessage("There isn't enough space " +
-    						"left on your SD card, but what you've " +
+    						"left on your SD card (" + freeBytes +"b) , but what you've " +
     						"recorded up to now has been saved.");
     						dialog.show();
     						actionButton.performClick();
