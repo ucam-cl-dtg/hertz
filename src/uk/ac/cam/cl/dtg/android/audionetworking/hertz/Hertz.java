@@ -321,9 +321,20 @@ public class Hertz extends Activity {
           recordInstance.read(tempBuffer, 0, bufferSize);
           outStream.write(tempBuffer);
         }
-      } catch (IOException e) {
-        // TODO(drt24): do something with this.
-        e.printStackTrace();
+      } catch (final IOException e) {
+        runOnUiThread(new Runnable() {
+
+          @Override
+          public void run() {
+            dialog.setTitle("IO Exception");
+            dialog.setMessage("An exception occured when writing to disk or reading from the microphone\n"
+                    + e.getLocalizedMessage()
+                    + "\nWhat you have recorded so far should be saved to disk.");
+            dialog.show();
+            actionButton.performClick();
+          }
+
+        });
       } catch (OutOfMemoryError om) {
         runOnUiThread(new Runnable() {
           @Override
@@ -344,6 +355,7 @@ public class Hertz extends Activity {
       try {
         outStream.close();
       } catch (Exception e) {
+        e.printStackTrace();
       }
     }
   }
