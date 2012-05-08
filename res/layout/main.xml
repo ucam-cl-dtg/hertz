@@ -58,6 +58,13 @@
 	
 	</LinearLayout>
 
+<TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="5dip"
+    android:text="Recordings are saved to the SD card."
+    android:textStyle="italic"
+    android:typeface="serif" >
+</TextView>
 
-<TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:typeface="serif" android:textStyle="italic" android:text="Recordings are saved to the SD card." android:layout_marginTop="5dip"></TextView>
 </LinearLayout>
