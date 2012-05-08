@@ -2,7 +2,6 @@ package uk.ac.cam.cl.dtg.android.audionetworking.hertz;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -38,6 +37,8 @@ import android.widget.Spinner;
  * 
  */
 public class Hertz extends Activity {
+
+  private static final int WAV_HEADER_LENGTH = 44;
 
   private Button actionButton;
   private ImageButton newTimestamp;
@@ -299,6 +300,7 @@ public class Hertz extends Activity {
       try {
         outFile.createNewFile();
         outStream = new FileOutputStream(outFile);
+        outStream.write(createHeader(0));// Write a dummy header for a file of length 0 to get updated later
       } catch (Exception e) {
         runOnUiThread(new Runnable() {
           @Override
@@ -369,111 +371,21 @@ public class Hertz extends Activity {
   public void appendHeader(File file) {
 
     int bytesLength = (int) file.length();
-    byte[] header = createHeader(bytesLength);
-    int headerLength = header.length;
-
-    String sdDirectory = Environment.getExternalStorageDirectory().toString();
-    StatFs stats = new StatFs(sdDirectory);
-    int freeBytes = stats.getAvailableBlocks() * stats.getBlockSize();
-
-    if (freeBytes > 2 * bytesLength + headerLength + 5242880) { // be wasteful if we have loads of
-                                                                // space
-      Log.d("Hertz", "Using wasteful header append...");
-      try {
-        String oldName = file.getPath();
-        File wavFile = new File(oldName + ".tmp");
-        if (wavFile.exists())
-          wavFile.delete();
-        wavFile.createNewFile();
-        FileOutputStream wavOut = new FileOutputStream(wavFile);
-
-        wavOut.write(createHeader((int) file.length()));
-
-        FileInputStream pcmIn = new FileInputStream(file);
-        int bytesRead;
-        byte[] buffer = new byte[1024];
-        while ((bytesRead = pcmIn.read(buffer)) > 0)
-          wavOut.write(buffer, 0, bytesRead);
-        wavOut.flush();
-        wavOut.close();
-        pcmIn.close();
-        file.delete();
-        boolean renamed = wavFile.renameTo(file);
-        if (!renamed)
-          Log.e("Hertz", "could not rename file after wasteful append");
-      } catch (FileNotFoundException e) {
-        Log.e("Hertz", "Tried to wastefully append header to invalid file");
-        return;
-      } catch (IOException e) {
-        Log.e("Hertz", "IO exception during wasteful header append");
-        return;
-      }
-    } else
-      try {
-        Log.d("Hertz", "Using thrifty header append...");
-        RandomAccessFile ramFile = new RandomAccessFile(file, "rw");
-        ramFile.setLength(bytesLength + headerLength);
-
-        byte[] buffer = new byte[headerLength];
-        int p = bytesLength - headerLength;
-        while (p >= 0) {
-          ramFile.seek(p);
-          ramFile.read(buffer);
-          ramFile.seek(p + headerLength);
-          ramFile.write(buffer);
-          p -= headerLength;
-        }
-
-        int strayBytes = headerLength + p;
-        ramFile.seek(0);
-        ramFile.read(buffer, 0, strayBytes);
-        ramFile.seek(headerLength);
-        ramFile.write(buffer, 0, strayBytes);
-
-        ramFile.seek(0);
-        ramFile.write(header);
-        ramFile.close();
-      } catch (FileNotFoundException e) {
-        Log.e("Hertz", "Tried to append header to invalid file");
-        return;
-      } catch (IOException e) {
-        Log.e("Hertz", "IO Error during header append");
-        return;
-      }
-
-  }
-
-  /**
-   * Saves the supplied byte array as a WAV file
-   * 
-   * @param name The desired filename
-   * @param bytes The sound data in 16-bit little-endian PCM format
-   */
-  public void save(String name, byte[] bytes) {
-    String sdDirectory = Environment.getExternalStorageDirectory().toString();
-
-    File fileName = new File(sdDirectory + "/" + name);
-    if (fileName.exists())
-      fileName.delete();
+    byte[] header = createHeader(bytesLength - WAV_HEADER_LENGTH);
 
     try {
-      fileName.createNewFile();
-      FileOutputStream out = new FileOutputStream(fileName);
-
-      byte[] header = createHeader(bytes.length);
-      out.write(header);
-      out.write(bytes);
-      out.flush();
-      out.close();
-      System.gc();
-
-    } catch (Exception e) {
-      Log.e("SaveToWAV", "Error saving WAV file");
+      RandomAccessFile ramFile = new RandomAccessFile(file, "rw");
+      ramFile.seek(0);
+      ramFile.write(header);
+      ramFile.close();
+    } catch (FileNotFoundException e) {
+      Log.e("Hertz", "Tried to append header to invalid file: " + e.getLocalizedMessage());
+      return;
+    } catch (IOException e) {
+      Log.e("Hertz", "IO Error during header append: " + e.getLocalizedMessage());
+      return;
     }
 
-    Intent scanWav = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-    scanWav.setData(Uri.fromFile(fileName));
-    sendBroadcast(scanWav);
   }
 
   /**
@@ -519,7 +431,7 @@ public class Hertz extends Activity {
    * @param in The integer to be converted
    * @return The bytes representing this integer
    */
-  public byte[] intToBytes(int in) {
+  public static byte[] intToBytes(int in) {
     byte[] bytes = new byte[4];
     for (int i = 0; i < 4; i++) {
       bytes[i] = (byte) ((in >>> i * 8) & 0xFF);
