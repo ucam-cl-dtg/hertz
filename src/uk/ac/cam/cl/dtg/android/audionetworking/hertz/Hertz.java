@@ -28,6 +28,7 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 
 /**
  * An activity that allows the user to record full-quality audio at a variety of sample rates, and
@@ -39,6 +40,7 @@ import android.widget.Spinner;
 public class Hertz extends Activity {
 
   private static final int WAV_HEADER_LENGTH = 44;
+  private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
 
   private Button actionButton;
   private ImageButton newTimestamp;
@@ -46,6 +48,8 @@ public class Hertz extends Activity {
   private String filename;
   private ProgressBar saving;
   private Spinner spinner;
+  private View startedRecording;
+  private TextView startedRecordingTime;
 
   private AlertDialog dialog;
 
@@ -69,6 +73,8 @@ public class Hertz extends Activity {
     editText = (EditText) findViewById(R.id.editText);
     saving = (ProgressBar) findViewById(R.id.saving);
     spinner = (Spinner) findViewById(R.id.spinner);
+    startedRecording = (View) findViewById(R.id.startedRecording);
+    startedRecordingTime = (TextView)findViewById(R.id.startedRecordingTime);
 
     // get a generic dialog ready for alerts
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -90,8 +96,7 @@ public class Hertz extends Activity {
       public void onClick(View v) {
         String timedFilename = "Rec_";
         Date date = new Date();
-        SimpleDateFormat format = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
-        timedFilename += format.format(date);
+        timedFilename += dateFormat.format(date);
         editText.setText(timedFilename);
       }
     });
@@ -110,6 +115,7 @@ public class Hertz extends Activity {
               runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                  startedRecording.setVisibility(View.GONE);
                   actionButton.setEnabled(false);
                   actionButton.setText("Saving...");
                   saving.setVisibility(View.VISIBLE);
@@ -214,6 +220,8 @@ public class Hertz extends Activity {
     s.start();
     Thread t = new Thread(new Capture());
     t.start();
+    startedRecordingTime.setText(dateFormat.format(new Date()));
+    startedRecording.setVisibility(View.VISIBLE);
   }
 
   /**
