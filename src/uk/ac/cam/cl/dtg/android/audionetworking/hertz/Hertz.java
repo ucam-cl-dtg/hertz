@@ -271,6 +271,18 @@ public class Hertz extends Activity {
 	          AudioRecord recordInstance =
 	        	  new AudioRecord(MediaRecorder.AudioSource.MIC,
 	        			  sampleRate, channelConfig, audioEncoding, bufferSize);
+	          if (recordInstance.getState() != AudioRecord.STATE_INITIALIZED){
+	            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                  dialog.setTitle("Error recording audio");
+                  dialog.setMessage("Unable to access the audio recording hardware - is your mic working?");
+                  dialog.show();
+                  actionButton.performClick();
+                }
+	            });
+	            return;
+	          }
 	          
 	          byte[] tempBuffer = new byte[bufferSize];
 
@@ -295,6 +307,7 @@ public class Hertz extends Activity {
   						actionButton.performClick();
   					}
   				});
+	            return;
 	          }
 	          
 	          recordInstance.startRecording();
@@ -305,6 +318,7 @@ public class Hertz extends Activity {
 	        		  outStream.write(tempBuffer);
 	        	  }
 	          } catch (IOException e) {
+	            //TODO(drt24): do something with this.
 	        	  e.printStackTrace();
 	          } catch (OutOfMemoryError om) {
 	        	  runOnUiThread(new Runnable() {
