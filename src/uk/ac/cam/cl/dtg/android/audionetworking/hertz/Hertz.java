@@ -73,6 +73,7 @@ public class Hertz extends Activity {
     AlertDialog.Builder builder = new AlertDialog.Builder(this);
     dialog = builder.create();
     dialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
+      @Override
       public void onClick(DialogInterface dialog, int which) {
         dialog.dismiss();
       }
@@ -103,8 +104,10 @@ public class Hertz extends Activity {
         if (isListening) {
           isListening = false;
           Thread thread = new Thread() {
+            @Override
             public void run() {
               runOnUiThread(new Runnable() {
+                @Override
                 public void run() {
                   actionButton.setEnabled(false);
                   actionButton.setText("Saving...");
@@ -123,6 +126,7 @@ public class Hertz extends Activity {
               }
 
               runOnUiThread(new Runnable() {
+                @Override
                 public void run() {
                   actionButton.setEnabled(true);
                   editText.setEnabled(true);
@@ -170,11 +174,13 @@ public class Hertz extends Activity {
             builder.setTitle("File already exists").setMessage(
                 "Do you want to overwrite the existing " + "file with that name?").setCancelable(
                 false).setPositiveButton("OK", new DialogInterface.OnClickListener() {
+              @Override
               public void onClick(DialogInterface dialog, int id) {
                 dialog.dismiss();
                 startRecording();
               }
             }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+              @Override
               public void onClick(DialogInterface dialog, int id) {
                 dialog.cancel();
               }
@@ -216,6 +222,7 @@ public class Hertz extends Activity {
    * 
    */
   private class SpaceCheck implements Runnable {
+    @Override
     public void run() {
       String sdDirectory = Environment.getExternalStorageDirectory().toString();
       StatFs stats = new StatFs(sdDirectory);
@@ -224,6 +231,7 @@ public class Hertz extends Activity {
         final long freeBytes = (long) stats.getAvailableBlocks() * (long) stats.getBlockSize();
         if (freeBytes < 5242880) { // less than 5MB remaining
           runOnUiThread(new Runnable() {
+            @Override
             public void run() {
               dialog.setTitle("Low on disk space");
               dialog.setMessage("There isn't enough space " + "left on your SD card (" + freeBytes
@@ -256,6 +264,7 @@ public class Hertz extends Activity {
 
     // the actual output format is big-endian, signed
 
+    @Override
     public void run() {
       // We're important...
       android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
@@ -292,6 +301,7 @@ public class Hertz extends Activity {
         outStream = new FileOutputStream(outFile);
       } catch (Exception e) {
         runOnUiThread(new Runnable() {
+          @Override
           public void run() {
             dialog.setTitle("Error creating file");
             dialog.setMessage("The WAV file you specified "
@@ -316,6 +326,7 @@ public class Hertz extends Activity {
         e.printStackTrace();
       } catch (OutOfMemoryError om) {
         runOnUiThread(new Runnable() {
+          @Override
           public void run() {
             dialog.setTitle("Out of memory");
             dialog.setMessage("The system has been " + "too strong for too long - but what you "
