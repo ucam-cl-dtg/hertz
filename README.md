@@ -5,6 +5,8 @@ The [project website](http://www.cl.cam.ac.uk/research/dtg/android/hertz/) conta
 
 This project is licenced under [Apache 2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
+It was originally written by Rhodri Karim as part of a 10 week [summer project](http://www.cl.cam.ac.uk/research/dtg/summer/).
+
 Contributing
 ------------
 1. Fork it
