@@ -293,7 +293,21 @@ public class Hertz extends Activity {
       android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_URGENT_AUDIO);
 
       // Allocate Recorder and Start Recording...
-      int bufferSize = 2 * AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioEncoding);
+      int minBufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioEncoding);
+      if (AudioRecord.ERROR_BAD_VALUE == minBufferSize || AudioRecord.ERROR == minBufferSize){
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            dialog.setTitle("Error recording audio");
+            dialog.setMessage("Your audio hardware doesn't support the sampling rate you have specified." +
+              "Try a lower sampling rate, if that doesn't work your audio hardware might be broken.");
+            dialog.show();
+            actionButton.performClick();
+          }
+        });
+        return;
+      }
+      int bufferSize = 2 * minBufferSize;
       AudioRecord recordInstance =
           new AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioEncoding,
               bufferSize);
