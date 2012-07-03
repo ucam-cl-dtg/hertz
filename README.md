@@ -15,7 +15,6 @@ Contributing
 
 TODO
 ----
-* Bug: Hertz can get garbage collected during recording which stops the recording.
 * Playback button when recording finished
 * Store and use last used sampling frequency
 * Pick and remember directory to record files to
