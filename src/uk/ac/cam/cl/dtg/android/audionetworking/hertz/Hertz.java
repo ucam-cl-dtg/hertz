@@ -87,16 +87,15 @@ public class Hertz extends Activity {
     editText = (EditText) findViewById(R.id.editText);
     saving = (ProgressBar) findViewById(R.id.saving);
     spinner = (Spinner) findViewById(R.id.spinner);
-    startedRecording = (View) findViewById(R.id.startedRecording);
+    startedRecording = findViewById(R.id.startedRecording);
     startedRecordingTime = (TextView)findViewById(R.id.startedRecordingTime);
 
     // get a generic dialog ready for alerts
-    AlertDialog.Builder builder = new AlertDialog.Builder(this);
-    dialog = builder.create();
+    dialog = new AlertDialog.Builder(this).create();
     dialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK", new DialogInterface.OnClickListener() {
       @Override
-      public void onClick(DialogInterface dialog, int which) {
-        dialog.dismiss();
+      public void onClick(DialogInterface dialogInterface, int which) {
+        dialogInterface.dismiss();
       }
     });
 
@@ -166,23 +165,17 @@ public class Hertz extends Activity {
           String state = Environment.getExternalStorageState();
           Log.d("FS State", state);
           if (state.equals(Environment.MEDIA_SHARED)) {
-            dialog.setTitle("Unmount USB storage");
-            dialog.setMessage("Please unmount USB storage before " + "starting to record.");
-            dialog.show();
+            showDialog("Unmount USB storage", "Please unmount USB storage before starting to record.");
             return;
           } else if (state.equals(Environment.MEDIA_REMOVED)) {
-            dialog.setTitle("Insert SD Card");
-            dialog.setMessage("Please insert an SD card. You need " + "something to record onto.");
-            dialog.show();
+            showDialog("Insert SD Card", "Please insert an SD card. You need something to record onto.");
             return;
           }
 
           // check that the user's supplied a file name
           filename = editText.getText().toString();
           if (filename.equals("") || filename == null) {
-            dialog.setTitle("Enter a file name");
-            dialog.setMessage("Please give your file a name. It's " + "the least it deserves.");
-            dialog.show();
+            showDialog("Enter a file name", "Please give your file a name. It's the least it deserves.");
             return;
           }
           if (!filename.endsWith(".wav"))
@@ -196,14 +189,14 @@ public class Hertz extends Activity {
                 "Do you want to overwrite the existing " + "file with that name?").setCancelable(
                 false).setPositiveButton("OK", new DialogInterface.OnClickListener() {
               @Override
-              public void onClick(DialogInterface dialog, int id) {
-                dialog.dismiss();
+              public void onClick(DialogInterface dialogInterface, int id) {
+                dialogInterface.dismiss();
                 startRecording();
               }
             }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
               @Override
-              public void onClick(DialogInterface dialog, int id) {
-                dialog.cancel();
+              public void onClick(DialogInterface dialogInterface, int id) {
+                dialogInterface.cancel();
               }
             });
             AlertDialog alert = builder.create();
@@ -256,10 +249,8 @@ public class Hertz extends Activity {
           runOnUiThread(new Runnable() {
             @Override
             public void run() {
-              dialog.setTitle("Low on disk space");
-              dialog.setMessage("There isn't enough space " + "left on your SD card (" + freeBytes
+              showDialog("Low on disk space", "There isn't enough space " + "left on your SD card (" + freeBytes
                   + "b) , but what you've " + "recorded up to now has been saved.");
-              dialog.show();
               actionButton.performClick();
             }
           });
@@ -298,10 +289,8 @@ public class Hertz extends Activity {
         runOnUiThread(new Runnable() {
           @Override
           public void run() {
-            dialog.setTitle("Error recording audio");
-            dialog.setMessage("Your audio hardware doesn't support the sampling rate you have specified." +
+            showDialog("Error recording audio", "Your audio hardware doesn't support the sampling rate you have specified." +
               "Try a lower sampling rate, if that doesn't work your audio hardware might be broken.");
-            dialog.show();
             actionButton.performClick();
           }
         });
@@ -315,10 +304,7 @@ public class Hertz extends Activity {
         runOnUiThread(new Runnable() {
           @Override
           public void run() {
-            dialog.setTitle("Error recording audio");
-            dialog
-                .setMessage("Unable to access the audio recording hardware - is your mic working?");
-            dialog.show();
+            showDialog("Error recording audio", "Unable to access the audio recording hardware - is your mic working?");
             actionButton.performClick();
           }
         });
@@ -341,10 +327,8 @@ public class Hertz extends Activity {
         runOnUiThread(new Runnable() {
           @Override
           public void run() {
-            dialog.setTitle("Error creating file");
-            dialog.setMessage("The WAV file you specified "
+            showDialog("Error creating file", "The WAV file you specified "
                 + "couldn't be created. Try again with a " + "different filename.");
-            dialog.show();
             outFile = null;
             actionButton.performClick();
           }
@@ -364,11 +348,9 @@ public class Hertz extends Activity {
 
           @Override
           public void run() {
-            dialog.setTitle("IO Exception");
-            dialog.setMessage("An exception occured when writing to disk or reading from the microphone\n"
+            showDialog("IO Exception", "An exception occured when writing to disk or reading from the microphone\n"
                     + e.getLocalizedMessage()
                     + "\nWhat you have recorded so far should be saved to disk.");
-            dialog.show();
             actionButton.performClick();
           }
 
@@ -377,10 +359,8 @@ public class Hertz extends Activity {
         runOnUiThread(new Runnable() {
           @Override
           public void run() {
-            dialog.setTitle("Out of memory");
-            dialog.setMessage("The system has been " + "too strong for too long - but what you "
+            showDialog("Out of memory", "The system has been " + "too strong for too long - but what you "
                 + "recorded up to now has been saved.");
-            dialog.show();
             System.gc();
             actionButton.performClick();
           }
@@ -396,6 +376,12 @@ public class Hertz extends Activity {
         e.printStackTrace();
       }
     }
+  }
+
+  private void showDialog(String title, String message){
+    dialog.setTitle(title);
+    dialog.setMessage(message);
+    dialog.show();
   }
 
   /**
@@ -435,7 +421,7 @@ public class Hertz extends Activity {
     int totalLength = bytesLength + 4 + 24 + 8;
     byte[] lengthData = intToBytes(totalLength);
     byte[] samplesLength = intToBytes(bytesLength);
-    byte[] sampleRate = intToBytes(this.sampleRate);
+    byte[] sampleRateBytes = intToBytes(this.sampleRate);
     byte[] bytesPerSecond = intToBytes(this.sampleRate * 2);
 
     ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -448,7 +434,7 @@ public class Hertz extends Activity {
       out.write(new byte[] {'f', 'm', 't', ' '});
       out.write(new byte[] {0x10, 0x00, 0x00, 0x00}); // 16 bit chunks
       out.write(new byte[] {0x01, 0x00, 0x01, 0x00}); // mono
-      out.write(sampleRate); // sampling rate
+      out.write(sampleRateBytes); // sampling rate
       out.write(bytesPerSecond); // bytes per second
       out.write(new byte[] {0x02, 0x00, 0x10, 0x00}); // 2 bytes per sample
 
