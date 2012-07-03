@@ -25,6 +25,10 @@ import java.util.Date;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.media.AudioFormat;
@@ -55,6 +59,7 @@ public class Hertz extends Activity {
 
   private static final int WAV_HEADER_LENGTH = 44;
   private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss");
+  private static final int NOTICE_RECORD = 0;
 
   private Button actionButton;
   private ImageButton newTimestamp;
@@ -75,6 +80,7 @@ public class Hertz extends Activity {
    * The sample rate at which we'll record, and save, the WAV file.
    */
   public int sampleRate = 8000;
+  private NotificationManager notificationManager;
 
   @Override
   public void onCreate(Bundle savedInstanceState) {
@@ -98,6 +104,7 @@ public class Hertz extends Activity {
         dialogInterface.dismiss();
       }
     });
+    notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
     // add GUI functionality
     saving.setVisibility(View.GONE);
@@ -121,94 +128,108 @@ public class Hertz extends Activity {
 
         // if we're already recording... start saving
         if (isListening) {
-          isListening = false;
-          Thread thread = new Thread() {
-            @Override
-            public void run() {
-              runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                  startedRecording.setVisibility(View.GONE);
-                  actionButton.setEnabled(false);
-                  actionButton.setText("Saving...");
-                  saving.setVisibility(View.VISIBLE);
-                }
-              });
-
-              if (outFile != null) {
-                appendHeader(outFile);
-
-                Intent scanWav = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
-                scanWav.setData(Uri.fromFile(outFile));
-                sendBroadcast(scanWav);
-
-                outFile = null;
-              }
-
-              runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                  actionButton.setEnabled(true);
-                  editText.setEnabled(true);
-                  newTimestamp.setEnabled(true);
-                  actionButton.setText("Start recording");
-                  saving.setVisibility(View.GONE);
-                }
-              });
-            }
-          };
-          thread.start();
-
+          endRecording();
         } else {
-
-          // check that there's somewhere to record to
-          String state = Environment.getExternalStorageState();
-          Log.d("FS State", state);
-          if (state.equals(Environment.MEDIA_SHARED)) {
-            showDialog("Unmount USB storage", "Please unmount USB storage before starting to record.");
-            return;
-          } else if (state.equals(Environment.MEDIA_REMOVED)) {
-            showDialog("Insert SD Card", "Please insert an SD card. You need something to record onto.");
-            return;
-          }
-
-          // check that the user's supplied a file name
-          filename = editText.getText().toString();
-          if (filename.equals("") || filename == null) {
-            showDialog("Enter a file name", "Please give your file a name. It's the least it deserves.");
-            return;
-          }
-          if (!filename.endsWith(".wav"))
-            filename += ".wav";
-
-          // ask if file should be overwritten
-          File userFile = new File(Environment.getExternalStorageDirectory() + "/" + filename);
-          if (userFile.exists()) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(Hertz.this);
-            builder.setTitle("File already exists").setMessage(
-                "Do you want to overwrite the existing " + "file with that name?").setCancelable(
-                false).setPositiveButton("OK", new DialogInterface.OnClickListener() {
-              @Override
-              public void onClick(DialogInterface dialogInterface, int id) {
-                dialogInterface.dismiss();
-                startRecording();
-              }
-            }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
-              @Override
-              public void onClick(DialogInterface dialogInterface, int id) {
-                dialogInterface.cancel();
-              }
-            });
-            AlertDialog alert = builder.create();
-            alert.show();
-          } else { // otherwise, start recording
-            startRecording();
-          }
-
+          beginRecording();
         }
       }
 
     });
+  }
+
+  /**
+   * End the recording, saving and finalising the file
+   */
+  private void endRecording() {
+    isListening = false;
+    Thread thread = new Thread() {
+      @Override
+      public void run() {
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            startedRecording.setVisibility(View.GONE);
+            actionButton.setEnabled(false);
+            actionButton.setText("Saving...");
+            saving.setVisibility(View.VISIBLE);
+          }
+        });
+
+        if (outFile != null) {
+          appendHeader(outFile);
+
+          Intent scanWav = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+          scanWav.setData(Uri.fromFile(outFile));
+          sendBroadcast(scanWav);
+
+          outFile = null;
+          notificationManager.cancel(NOTICE_RECORD);
+        }
+
+        runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            actionButton.setEnabled(true);
+            editText.setEnabled(true);
+            newTimestamp.setEnabled(true);
+            actionButton.setText("Start recording");
+            saving.setVisibility(View.GONE);
+          }
+        });
+      }
+    };
+    thread.start();
+  }
+
+  /**
+   * Begin the recording after verifying that we can, if we can't then tell the user and return
+   */
+  private void beginRecording() {
+
+    // check that there's somewhere to record to
+    String state = Environment.getExternalStorageState();
+    Log.d("FS State", state);
+    if (state.equals(Environment.MEDIA_SHARED)) {
+      showDialog("Unmount USB storage", "Please unmount USB storage before starting to record.");
+      return;
+    } else if (state.equals(Environment.MEDIA_REMOVED)) {
+      showDialog("Insert SD Card", "Please insert an SD card. You need something to record onto.");
+      return;
+    }
+
+    // check that the user's supplied a file name
+    filename = editText.getText().toString();
+    if (filename.equals("") || filename == null) {
+      showDialog("Enter a file name", "Please give your file a name. It's the least it deserves.");
+      return;
+    }
+    if (!filename.endsWith(".wav")) {
+      filename += ".wav";
+    }
+
+    // ask if file should be overwritten
+    File userFile = new File(Environment.getExternalStorageDirectory() + "/" + filename);
+    if (userFile.exists()) {
+      AlertDialog.Builder builder = new AlertDialog.Builder(Hertz.this);
+      builder.setTitle("File already exists").setMessage(
+          "Do you want to overwrite the existing " + "file with that name?").setCancelable(false)
+          .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int id) {
+              dialogInterface.dismiss();
+              startRecording();
+            }
+          }).setNegativeButton("Cancel", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int id) {
+              dialogInterface.cancel();
+            }
+          });
+      AlertDialog alert = builder.create();
+      alert.show();
+    } else { // otherwise, start recording
+      startRecording();
+    }
   }
 
   @Override
@@ -229,6 +250,18 @@ public class Hertz extends Activity {
     t.start();
     startedRecordingTime.setText(dateFormat.format(new Date()));
     startedRecording.setVisibility(View.VISIBLE);
+    setNotification();
+  }
+
+  private void setNotification() {
+    CharSequence notificationTitle = getText(R.string.notification_title);
+    Notification notification = new Notification(R.drawable.icon, notificationTitle, System.currentTimeMillis());
+    int flags = Notification.FLAG_ONGOING_EVENT | Notification.FLAG_NO_CLEAR;
+    notification.setLatestEventInfo(getApplicationContext(), notificationTitle,
+        getText(R.string.notifification_content),
+        PendingIntent.getActivity(this,0,new Intent(this, Hertz.class),0));
+    notification.flags |= flags;
+    notificationManager.notify(NOTICE_RECORD, notification);
   }
 
   /**

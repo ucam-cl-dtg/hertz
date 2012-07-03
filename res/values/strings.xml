@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Hertz</string>
+    <string name="notification_title">recording</string>
+    <string name="notifification_content">Hertz is recording</string>
 </resources>
