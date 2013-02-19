@@ -3,8 +3,8 @@
   <modelVersion>4.0.0</modelVersion>
   <parent>
     <groupId>uk.ac.cam.cl.dtg</groupId>
-    <artifactId>parentpom</artifactId>
-    <version>1.0.1</version>
+    <artifactId>parent</artifactId>
+    <version>1.0.2</version>
   </parent>
   <groupId>uk.ac.cam.cl.dtg.android.audio</groupId>
   <artifactId>Hertz</artifactId>
